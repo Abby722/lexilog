@@ -1,0 +1,8 @@
+{"word": "Zuschlag", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Zuschlag m (strong, genitive Zuschlages or Zuschlags, plural Zuschläge)"}], "senses": [{"glosses": ["surcharge, extra charge"]}, {"glosses": ["award (of a contract)"]}]}
+{"word": "Netz", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Netz n (strong, genitive Netzes, plural Netze)"}], "senses": [{"glosses": ["net"]}, {"glosses": ["network, grid"]}]}
+{"word": "Netzes", "pos": "noun", "lang": "German", "senses": [{"glosses": ["genitive singular of Netz"], "form_of": [{"word": "Netz"}]}]}
+{"word": "Leistung", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Leistung f (genitive Leistung, plural Leistungen)"}], "senses": [{"glosses": ["performance, achievement"]}, {"glosses": ["power (physics)"]}]}
+{"word": "anpassen", "pos": "verb", "lang": "German", "head_templates": [{"name": "de-verb", "expansion": "anpassen (weak, third-person singular present passt an)"}], "senses": [{"glosses": ["to adapt, adjust"]}]}
+{"word": "angepasst", "pos": "verb", "lang": "German", "senses": [{"glosses": ["past participle of anpassen"], "form_of": [{"word": "anpassen"}]}]}
+{"word": "Gemeinde", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Gemeinde f (genitive Gemeinde, plural Gemeinden)"}], "senses": [{"glosses": ["municipality, community"]}]}
+not json at all

@@ -1,0 +1,10 @@
+streamlit>=1.50
+pandas>=2.0
+altair>=5.0
+openpyxl>=3.1        # Excel imports
+pdfplumber>=0.11     # reading PDFs
+compound-split>=1.0  # splitting German compounds
+pytesseract>=0.3     # reading screenshots (also needs the Tesseract program, see README)
+pillow>=10.0
+spacy>=3.7           # dictionary forms; then download the models, see README
+pytest>=8.0

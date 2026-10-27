@@ -1,0 +1,21 @@
+[theme]
+base = "light"
+primaryColor = "#2E6B5E"
+backgroundColor = "#F4F6F3"
+secondaryBackgroundColor = "#E6EBE5"
+textColor = "#1D2A28"
+borderColor = "#CBD4CB"
+baseRadius = "0.4rem"
+font = "Public Sans:https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&display=swap, sans-serif"
+headingFont = "Literata:https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&display=swap, serif"
+headingFontWeights = [700, 600, 500]
+chartCategoricalColors = ["#2E6B5E", "#6B4C9A", "#C08A2E", "#4F7CA8", "#A0524A", "#7A8B74", "#5C5C5C", "#B07AA1"]
+
+[theme.sidebar]
+backgroundColor = "#E6EBE5"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
