@@ -42,7 +42,14 @@ python scripts/build_dictionary.py de path/to/german-file.jsonl
 python scripts/build_dictionary.py fr path/to/french-file.jsonl
 ```
 
-This creates `data/dictionary_de.sqlite`; the download can be deleted afterwards.
+This creates `data/dictionary_de.sqlite` with meanings, genders, plurals and, for
+verbs, the key forms (*er geht · ging · ist gegangen*) and whether the verb is
+irregular. The download can be deleted afterwards, but keep it if you expect to
+rebuild after an update of lexilog.
+
+German compounds that Wiktionary doesn't list get their gender and plural from their
+last part (*Netz* + *Zuschlag* → *der Netzzuschlag*, pl. *Netzzuschläge*) and a
+meaning assembled from the parts, marked with ≈.
 
 **Reading screenshots and scanned pages** needs the Tesseract OCR program with German
 and French language data:
@@ -70,6 +77,10 @@ have yet. Each comes with its dictionary form, gender, a meaning from the offlin
 dictionary, its word parts (*Netzzuschlag* = *Netz* + *Zuschlag*) and the place it
 appears; for tables, that's the row with its section heading. Words are ranked by how
 often the document uses them.
+
+If a word you already have turns up in a new document, no duplicate is created: the
+document is added to the places where that word appeared (the *Appeared in* column in
+the *Word list*).
 
 Every list you save is also written as a CSV to `data/lists/`, named by date and title,
 in a format the *Import* page reads back. They are kept out of Git by default; delete

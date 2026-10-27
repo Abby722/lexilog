@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS lexemes (
     pos         TEXT,                        -- NOUN, VERB, ADJ ...
     gender      TEXT,                        -- m / f / n
     plural      TEXT,
+    verb_forms  TEXT,                        -- "er passt an · passte an · hat angepasst"
     gloss       TEXT,                        -- meaning in your own words
     notes       TEXT,
     tags        TEXT,                        -- comma separated, e.g. "B1,politics"

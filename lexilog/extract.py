@@ -120,6 +120,9 @@ class Candidate:
     plural: str | None = None
     gloss: str = ""
     parts: str = ""
+    verb_forms: str = ""
+    irregular: bool | None = None
+    known: bool = False
 
     def best_context(self) -> tuple[str, int | None]:
         good = [c for c in self.contexts if 25 <= len(c[0]) <= 220]
@@ -146,49 +149,98 @@ def _stopwords(language: str) -> set[str]:
                 "le", "la", "les", "et", "ou", "de", "des", "du", "pour", "avec", "dans"}
 
 
-def _choose_lemma(lemma: str, surface: str, d) -> str:
-    """Prefer whichever form the dictionary actually knows."""
-    if d is None:
-        return lemma
-    for cand in (lemma, surface):
-        if d.has(cand):
-            return cand
-    base = d.base_form(surface)
-    return base or lemma
+# ---------- compounds ----------
+
+def _strip_linking(left: str, d) -> str:
+    """Remove a linking element: 'Übertragungs' → 'Übertragung', 'Bundes' → 'Bund'."""
+    options = [left]
+    for suffix in ("es", "s", "en", "n", "e"):
+        if left.lower().endswith(suffix) and len(left) - len(suffix) >= 3:
+            options.append(left[:-len(suffix)])
+    if d is not None:
+        for o in options:
+            if d.has(o):
+                return o
+    if left.lower().endswith("s") and left.lower()[:-1].endswith(FUGEN_STEMS):
+        return left[:-1]
+    return left
 
 
 def split_parts(word: str, d=None, min_len: int = 9) -> list[str]:
-    """Split a German compound into parts: 'Übertragungsnetz' → ['Übertragung', 'Netz']."""
+    """Split a German compound: 'Übertragungsnetz' → ['Übertragung', 'Netz']."""
     if len(word) < min_len:
         return []
     try:
         from compound_split import char_split
     except ImportError:
         return []
-    score, left, right = char_split.split_compound(word)[0]
+    is_adj = word[:1].islower()
+    score, left, right = char_split.split_compound(word.capitalize())[0]
     if score < 0.6:
         return []
-    if left.lower().endswith("s") and left.lower()[:-1].endswith(FUGEN_STEMS):
-        left = left[:-1]
-    parts = [left.capitalize()]
-    sub = split_parts(right, d, min_len)
-    parts += sub if sub else [right.capitalize()]
-    return parts
+    left = _strip_linking(left.capitalize(), d)
+    sub = split_parts(right if not is_adj else right.lower(), d, min_len)
+    last = sub if sub else [right.lower() if is_adj else right.capitalize()]
+    return [left] + last
+
+
+def _short(gloss: str | None) -> str:
+    return re.split(r"[;,(]", gloss or "")[0].strip()
 
 
 def describe_parts(parts: list[str], d) -> str:
-    if not parts:
-        return ""
     out = []
     for p in parts:
         e = d.lookup(p) if d else None
-        short = e["gloss"].split(";")[0].split(",")[0] if e and e.get("gloss") else ""
+        short = _short(e["gloss"]) if e else ""
         out.append(f"{p} ({short})" if short else p)
     return " + ".join(out)
 
 
+def _fill_from_head(c: "Candidate", parts: list[str], d):
+    """A German compound takes gender and plural from its last part:
+    Netz + Zuschlag (m, pl. Zuschläge) → der Netzzuschlag, pl. Netzzuschläge."""
+    if not parts or d is None:
+        return
+    head = d.lookup(parts[-1], prefer_pos="noun") or {}
+    prefix = c.lemma[: len(c.lemma) - len(parts[-1])]
+    if not c.gender and head.get("gender"):
+        c.gender = head["gender"]
+    if not c.plural and head.get("plural") and c.lemma.lower().endswith(parts[-1].lower()):
+        c.plural = prefix + head["plural"].lower()
+    if not c.gloss:
+        shorts = [_short((d.lookup(p) or {}).get("gloss")) for p in parts]
+        if all(shorts):
+            c.gloss = "≈ " + " + ".join(shorts)
+
+
+def _choose_lemma(lemma: str, surface: str, pos: str, d) -> str:
+    """Prefer whichever form the dictionary knows; for unknown compounds, fix the last part."""
+    if d is None:
+        return lemma
+    for cand in (lemma, surface):
+        if d.has(cand):
+            return cand
+    base = d.base_form(surface)
+    if base:
+        return base
+    if pos == "NOUN":
+        parts = split_parts(surface, d)
+        if parts:
+            last = surface[len(surface) - len(parts[-1]):]   # e.g. "kosten" in Messkosten
+            if d.has(last):
+                return surface                               # plural-only head such as Kosten
+            head_base = d.base_form(last)
+            if head_base:
+                return surface[: len(surface) - len(last)] + head_base.lower()
+    return lemma
+
+
+# ---------- candidates ----------
+
 def candidates(segments: list[Segment], language: str, known: set[str] = frozenset(),
                min_len: int = 3, data_dir: str | None = None) -> list[Candidate]:
+    """All content words in the document. Words already in `known` are marked, not dropped."""
     d = dictmod.load(language, data_dir)
     nlp = nlpmod._load(language)
     stop = _stopwords(language)
@@ -214,7 +266,7 @@ def candidates(segments: list[Segment], language: str, known: set[str] = frozens
                         and t.text.islower() and len(t.text) <= 5
                         and not (d and d.has(t.text))):
                     continue  # abbreviation such as "exkl." or "inkl."
-                lemma = _choose_lemma(t.lemma_, t.text, d)
+                lemma = _choose_lemma(t.lemma_, t.text, t.pos_, d)
                 if t.pos_ == "NOUN":
                     lemma = lemma[:1].upper() + lemma[1:]
                 if language == "de" and t.pos_ == "VERB":
@@ -228,19 +280,34 @@ def candidates(segments: list[Segment], language: str, known: set[str] = frozens
                 if len(w) < min_len or w.lower() in stop or w.isupper():
                     continue
                 pos = "NOUN" if language == "de" and w[0].isupper() else None
-                add(_choose_lemma(w, w, d), w, pos, seg)
+                add(_choose_lemma(w, w, pos, d), w, pos, seg)
 
     result = []
+    pos_map = {"NOUN": "noun", "VERB": "verb", "ADJ": "adj", "ADV": "adv"}
     for c in found.values():
-        if c.lemma.lower() in stop or normalise_known(c.lemma) in known:
+        if c.lemma.lower() in stop:
             continue
+        c.known = normalise_known(c.lemma) in known
         if d:
-            e = d.lookup(c.lemma, prefer_pos={"NOUN": "noun", "VERB": "verb",
-                                              "ADJ": "adj", "ADV": "adv"}.get(c.pos))
+            e = d.lookup(c.lemma, prefer_pos=pos_map.get(c.pos))
             if e:
                 c.gloss, c.gender, c.plural = e["gloss"] or "", e["gender"], e["plural"]
-        if language == "de" and c.pos in ("NOUN", None) and c.lemma[:1].isupper():
-            c.parts = describe_parts(split_parts(c.lemma, d), d)
+                c.verb_forms = e.get("verb_forms") or ""
+                c.irregular = bool(e["irregular"]) if e.get("irregular") is not None else None
+                if c.pos is None and e.get("pos") in ("noun", "verb", "adj", "adv"):
+                    c.pos = {v: k for k, v in pos_map.items()}[e["pos"]]
+        if language == "de" and c.pos in ("NOUN", "ADJ", None):
+            parts = split_parts(c.lemma, d)
+            if parts:
+                c.parts = describe_parts(parts, d)
+                if c.pos in ("NOUN", None) and c.lemma[:1].isupper():
+                    _fill_from_head(c, parts, d)
+                elif not c.gloss and d:
+                    shorts = [_short((d.lookup(p) or {}).get("gloss")) for p in parts]
+                    if all(shorts):
+                        c.gloss = "≈ " + " + ".join(shorts)
+        if c.pos and c.pos != "NOUN":
+            c.gender = c.plural = None
         result.append(c)
 
     # Frequent first; among equals, longer words (usually the document's own terms) first.

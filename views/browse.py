@@ -28,16 +28,23 @@ if kind:
     lex = lex[lex.kind.isin(kind)]
 
 st.caption(f"{len(lex)} entries")
-view = lex.assign(Language=lex.language.map(lang_name))[
-    ["id", "Language", "lemma", "gender", "plural", "gloss", "tags", "status",
-     "encounters", "first_seen", "due"]]
+view = lex.assign(Language=lex.language.map(lang_name),
+                  type=lex.pos.map(lambda p: db.POS_LABELS.get(p, p) if p else ""),
+                  sources=lex.sources.fillna("").str.replace(",", ", "))[
+    ["id", "Language", "lemma", "type", "gender", "plural", "gloss", "verb_forms", "notes",
+     "tags", "status", "encounters", "sources", "first_seen", "due"]]
+text_cols = ["gender", "plural", "gloss", "verb_forms", "notes", "tags"]
+view[text_cols] = view[text_cols].fillna("")
 edited = st.data_editor(
     view, hide_index=True, width="stretch", key="browse_editor",
-    disabled=["id", "Language", "status", "encounters", "first_seen", "due"],
+    disabled=["id", "Language", "type", "status", "encounters", "sources", "first_seen", "due"],
     column_config={
         "id": None, "lemma": "Word or expression", "gloss": "Meaning",
         "gender": st.column_config.SelectboxColumn("Gender", options=["", "m", "f", "n"]),
-        "encounters": "Times met", "first_seen": "First met", "due": "Next review",
+        "type": "Type", "plural": "Plural", "verb_forms": "Verb forms", "status": "Status",
+        "notes": "Word parts / notes", "tags": "Tags",
+        "encounters": "Times met", "sources": st.column_config.TextColumn("Appeared in", width="medium"),
+        "first_seen": "First met", "due": "Next review",
     })
 
 changes = st.session_state.get("browse_editor", {}).get("edited_rows", {})

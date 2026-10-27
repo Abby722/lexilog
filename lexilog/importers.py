@@ -3,7 +3,15 @@ import io
 
 import pandas as pd
 
-from .db import add_encounter
+from .db import POS_LABELS, add_encounter
+
+_POS_CODES = {**{v: k for k, v in POS_LABELS.items()}, "adj": "ADJ", "adv": "ADV"}
+
+
+def pos_code(value: str) -> str | None:
+    """Accept 'noun', 'Noun' or 'NOUN' and store spaCy's code."""
+    v = (value or "").strip()
+    return _POS_CODES.get(v.lower()) or (v.upper() if v.upper() in POS_LABELS else None)
 
 # Column names we recognise automatically, lower-cased.
 ALIASES = {
@@ -15,6 +23,9 @@ ALIASES = {
     "locator": ["locator", "page", "timestamp", "time", "location"],
     "seen_at": ["seen_at", "date", "created", "added"],
     "gender": ["gender", "genus"],
+    "plural": ["plural"],
+    "pos": ["pos", "part of speech", "word class"],
+    "verb_forms": ["verb_forms", "verb forms", "forms"],
     "notes": ["notes", "parts", "word parts"],
     "tags": ["tags", "tag"],
 }
@@ -61,6 +72,7 @@ def import_rows(conn, df: pd.DataFrame, mapping: dict, *, language: str,
             url=get("url"), locator=get("locator"), seen_at=seen,
             gloss=get("gloss"), gender=get("gender") if get("gender") in ("m", "f", "n") else None,
             notes=get("notes"), tags=get("tags") or default_tags,
+            plural=get("plural"), pos=pos_code(get("pos")), verb_forms=get("verb_forms"),
             kind="expression" if len(lemma.split()) > 1 else "word",
         )
         new += created

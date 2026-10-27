@@ -50,3 +50,22 @@ def test_goal_progress_pace():
     lex = stats.with_status(db.lexemes_df(c))
     p = stats.goal_progress(db.goals_df(c).iloc[0], lex, today=date(2026, 1, 31))
     assert p["known"] == 0 and not p["on_track"] and p["expected_now"] == 51
+
+
+def test_has_encounter_detects_same_source_and_sentence():
+    c = conn()
+    db.add_encounter(c, "de", "Netz", sentence="Netz Industrie", source_title="Tarif A")
+    assert db.has_encounter(c, "de", "Netz", "Tarif A", "Netz Industrie")
+    assert not db.has_encounter(c, "de", "Netz", "Tarif B", "Netz Industrie")
+
+
+def test_migration_adds_verb_forms_to_old_databases(tmp_path):
+    import sqlite3
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE lexemes (id INTEGER PRIMARY KEY, language TEXT, lemma TEXT, "
+                "kind TEXT DEFAULT 'word', pos TEXT, gender TEXT, plural TEXT, gloss TEXT, "
+                "notes TEXT, tags TEXT, created_at TEXT DEFAULT (datetime('now')))")
+    old.commit(); old.close()
+    c = db.connect(path)
+    assert "verb_forms" in {r[1] for r in c.execute("PRAGMA table_info(lexemes)")}

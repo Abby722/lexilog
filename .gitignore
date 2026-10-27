@@ -5,3 +5,4 @@ data/*.sqlite
 data/lists/
 .venv/
 .DS_Store
+dictionary-*.jsonl*

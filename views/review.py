@@ -56,6 +56,9 @@ with st.container(border=True):
                                           + ")" if g else "")
         st.markdown(head)
         st.markdown(lex["gloss"] or "_No meaning saved yet. Add one in the word list._")
+        extras = [x for x in (lex["verb_forms"], lex["notes"]) if x]
+        if extras:
+            st.caption("  \n".join(extras))
         if len(contexts) > 1:
             with st.expander(f"All {len(contexts)} places you met it"):
                 for e in contexts:

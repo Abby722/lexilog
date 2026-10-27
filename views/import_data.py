@@ -29,6 +29,7 @@ mapping = {}
 labels = {"lemma": "Word or expression (required)", "sentence": "Sentence",
           "gloss": "Meaning", "source_title": "Title", "url": "Link",
           "locator": "Page or timestamp", "seen_at": "Date", "gender": "Gender (m/f/n)",
+          "plural": "Plural", "pos": "Part of speech", "verb_forms": "Verb forms",
           "notes": "Word parts or notes", "tags": "Tags"}
 grid = st.columns(3)
 for i, (field, label) in enumerate(labels.items()):

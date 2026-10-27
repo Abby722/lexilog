@@ -16,13 +16,23 @@ def build_dict(tmp_path):
 
 def test_dictionary_build_and_lookup(tmp_path):
     n, d = build_dict(tmp_path)
-    assert n == 5
+    assert n == 13
     z = d.lookup("Zuschlag")
     assert z["gender"] == "m" and z["plural"] == "Zuschläge"
     assert z["gloss"].startswith("surcharge")
     assert d.lookup("Leistung")["gender"] == "f"
     assert d.base_form("angepasst") == "anpassen"
     assert d.lookup("nichtda") is None
+    assert d.lookup("Kosten")["gender"] is None             # "pl" is not a gender
+
+
+def test_verb_forms_and_irregularity(tmp_path):
+    _, d = build_dict(tmp_path)
+    g = d.lookup("gehen")
+    assert g["verb_forms"] == "er geht · ging · ist gegangen"
+    assert g["irregular"] == 1
+    assert d.lookup("anpassen")["irregular"] == 0
+    assert d.lookup("anpassen")["verb_forms"] == "er passt an"   # only what the entry gives
 
 
 def test_segments_keep_table_headings():
@@ -48,8 +58,24 @@ def test_candidates_use_dictionary_and_skip_known(tmp_path):
                                 "Zuschlag Übertragungsnetz Rp./kWh 0.05")])
     cands = extract.candidates(segs, "de", known={"die Gemeinde"}, data_dir=str(tmp_path))
     by = {c.lemma: c for c in cands}
-    assert "Gemeinde" not in by                      # already known
+    assert by["Gemeinde"].known and not by["Zuschlag"].known
     assert by["Zuschlag"].gender == "m"
     assert "surcharge" in by["Zuschlag"].gloss
     assert by["Netzzuschlag"].parts.startswith("Netz (net)")
     assert by["Netzzuschlag"].best_context()[0].startswith("Abgaben an Gemeinde →")
+
+
+def test_compounds_take_gender_and_plural_from_their_last_part(tmp_path):
+    pytest.importorskip("compound_split")
+    build_dict(tmp_path)
+    segs = extract.segment([(1, "Bundesgesetzliche Abgaben\nNetzzuschlag Rp./kWh 2.30\n"
+                                "Stromreserve Rp./kWh 0.41\nZuschlag Übertragungsnetz Rp./kWh 0.05\n"
+                                "Die Messkosten sind enthalten.")])
+    by = {c.lemma: c for c in extract.candidates(segs, "de", data_dir=str(tmp_path))}
+    nz = by["Netzzuschlag"]
+    assert (nz.gender, nz.plural) == ("m", "Netzzuschläge")
+    assert nz.gloss == "≈ net + surcharge"
+    assert by["Stromreserve"].gender == "f" and by["Stromreserve"].plural == "Stromreserven"
+    assert by["Übertragungsnetz"].gender == "n"
+    assert "Messkosten" in by                                    # not "Messkost"
+    assert by["bundesgesetzlich"].parts.startswith("Bund (federation)")

@@ -15,7 +15,9 @@ from .db import DEFAULT_DB
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
     word TEXT NOT NULL, word_lc TEXT NOT NULL, pos TEXT,
-    gender TEXT, plural TEXT, gloss TEXT
+    gender TEXT, plural TEXT, gloss TEXT,
+    verb_forms TEXT,            -- "passt an · passte an · hat angepasst"
+    irregular INTEGER           -- 1 strong/irregular/mixed, 0 weak/regular, NULL unknown
 );
 CREATE TABLE IF NOT EXISTS forms (form_lc TEXT NOT NULL, base TEXT NOT NULL);
 """
@@ -32,7 +34,68 @@ def path_for(language: str, data_dir: Path | None = None) -> Path:
 
 # ---------- building from kaikki.org JSONL ----------
 
-def parse_entry(entry: dict) -> tuple[dict | None, list[tuple[str, str]]]:
+def _from_forms(entry: dict) -> dict:
+    """Pick key verb forms from wiktextract's tagged `forms` list."""
+    found = {}
+    for f in entry.get("forms") or []:
+        tags, form = set(f.get("tags") or []), f.get("form", "")
+        if not form or form == "-" or "table-tags" in tags or "inflection-template" in tags:
+            continue
+        if {"participle", "past"} <= tags:
+            found.setdefault("pp", form)
+        elif {"participle", "present"} <= tags:
+            found.setdefault("ppres", form)
+        elif "auxiliary" in tags:
+            found.setdefault("aux", form)
+        elif {"present", "third-person", "singular"} <= tags and not tags & {"subjunctive", "subjunctive-i", "subjunctive-ii"}:
+            found.setdefault("pres3", form)
+        elif ({"past", "third-person", "singular"} <= tags or {"preterite", "third-person", "singular"} <= tags) \
+                and not tags & {"subjunctive", "subjunctive-i", "subjunctive-ii", "participle"}:
+            found.setdefault("past", form)
+    return found
+
+
+def _from_expansion(exp: str) -> dict:
+    """Fallback: read forms from a headword line such as
+    'gehen (class 7 strong, third-person singular present geht, past tense ging,
+     past participle gegangen, auxiliary sein)'."""
+    found = {}
+    for key, label in (("pres3", "third-person singular present"), ("past", "past tense"),
+                       ("pp", "past participle"), ("ppres", "present participle"),
+                       ("aux", "auxiliary")):
+        m = re.search(label + r" ([^,)]+)", exp)
+        if m:
+            found[key] = m.group(1).split(" or ")[0].strip()
+    return found
+
+
+def verb_info(entry: dict, language: str) -> tuple[str | None, int | None]:
+    """Return (compact forms string, irregular flag) for a verb entry."""
+    exps = " ".join(ht.get("expansion") or "" for ht in entry.get("head_templates") or [])
+    forms = {**_from_expansion(exps), **_from_forms(entry)}
+    low = exps.lower()
+    irregular = 1 if re.search(r"\b(strong|irregular|mixed)\b", low) else \
+        0 if re.search(r"\b(weak|regular)\b", low) else None
+    if language == "de":
+        parts = []
+        if forms.get("pres3"):
+            parts.append(f"er {forms['pres3']}")
+        if forms.get("past"):
+            parts.append(forms["past"])
+        if forms.get("pp"):
+            aux = (forms.get("aux") or "haben").split()[0]
+            parts.append(f"{'ist' if aux == 'sein' else 'hat'} {forms['pp']}")
+        text = " · ".join(parts)
+    else:
+        parts = []
+        if forms.get("pp"):
+            parts.append(f"p.p. {forms['pp']}")
+        if forms.get("ppres"):
+            parts.append(f"gérondif en {forms['ppres']}")
+        text = " · ".join(parts)
+    return text or None, irregular
+
+def parse_entry(entry: dict, language: str = "de") -> tuple[dict | None, list[tuple[str, str]]]:
     """Turn one wiktextract entry into (dictionary row or None, [(form, base word)])."""
     word = entry.get("word", "")
     forms, glosses = [], []
@@ -62,11 +125,16 @@ def parse_entry(entry: dict) -> tuple[dict | None, list[tuple[str, str]]]:
     gloss = "; ".join(glosses[:3])
     if len(gloss) > 160:
         gloss = gloss[:157].rsplit(" ", 1)[0] + "…"
+    verb_forms = irregular = None
+    if entry.get("pos") == "verb":
+        verb_forms, irregular = verb_info(entry, language)
+        plural = None  # "plural" in a verb headline is not a noun plural
     return ({"word": word, "word_lc": word.lower(), "pos": entry.get("pos"),
-             "gender": gender, "plural": plural, "gloss": gloss}, forms)
+             "gender": gender, "plural": plural, "gloss": gloss,
+             "verb_forms": verb_forms, "irregular": irregular}, forms)
 
 
-def build(jsonl_lines, out_path: Path) -> int:
+def build(jsonl_lines, out_path: Path, language: str = "de") -> int:
     """Build a dictionary database from an iterable of JSON lines. Returns the entry count."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -79,9 +147,10 @@ def build(jsonl_lines, out_path: Path) -> int:
             entry = json.loads(line)
         except ValueError:
             continue
-        row, forms = parse_entry(entry)
+        row, forms = parse_entry(entry, language)
         if row:
-            conn.execute("INSERT INTO entries VALUES (:word,:word_lc,:pos,:gender,:plural,:gloss)", row)
+            conn.execute("INSERT INTO entries VALUES (:word,:word_lc,:pos,:gender,:plural,:gloss,"
+                         ":verb_forms,:irregular)", row)
             n += 1
         if forms:
             conn.executemany("INSERT INTO forms VALUES (?, ?)", forms)
@@ -97,6 +166,11 @@ class Dictionary:
     def __init__(self, path: Path):
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+
+    @property
+    def has_verb_forms(self) -> bool:
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(entries)")}
+        return "verb_forms" in cols
 
     def has(self, word: str) -> bool:
         return self.conn.execute("SELECT 1 FROM entries WHERE word_lc=? LIMIT 1",

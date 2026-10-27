@@ -25,7 +25,7 @@ def main():
     out = dictionary.path_for(lang)
     print(f"Reading {src.name}. A full download takes a few minutes.")
     with opener(src, "rt", encoding="utf-8") as f:
-        n = dictionary.build(f, out)
+        n = dictionary.build(f, out, lang)
     print(f"Wrote {n:,} entries to {out}")
 
 

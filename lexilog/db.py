@@ -8,6 +8,8 @@ import pandas as pd
 from .scheduler import CardState, due_date, schedule
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "lexilog.db"
+POS_LABELS = {"NOUN": "noun", "VERB": "verb", "ADJ": "adjective", "ADV": "adverb",
+              "EXPR": "expression", "PROPN": "name"}
 SOURCE_TYPES = ["news", "web", "duolingo", "pdf", "podcast", "youtube", "class", "other"]
 LANGUAGES = {"de": "German", "fr": "French"}
 
@@ -27,7 +29,16 @@ def connect(path: str | Path = DEFAULT_DB) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript((Path(__file__).parent / "schema.sql").read_text(encoding="utf-8"))
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn):
+    """Add columns introduced after a database was first created."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(lexemes)")}
+    if "verb_forms" not in cols:
+        conn.execute("ALTER TABLE lexemes ADD COLUMN verb_forms TEXT")
+        conn.commit()
 
 
 # ---------- writing ----------
@@ -66,6 +77,14 @@ def add_encounter(conn, language: str, lemma: str, *, sentence: str = "", surfac
     )
     conn.commit()
     return lexeme_id, created
+
+
+def has_encounter(conn, language: str, lemma: str, source_title: str, sentence: str) -> bool:
+    """True if this word is already recorded with this source and sentence."""
+    return conn.execute(
+        """SELECT 1 FROM encounters e JOIN lexemes l ON l.id = e.lexeme_id
+           WHERE l.language=? AND l.lemma=? AND e.source_title=? AND COALESCE(e.sentence,'')=?
+           LIMIT 1""", (language, lemma.strip(), source_title or "", sentence or "")).fetchone() is not None
 
 
 def record_review(conn, lexeme_id: int, rating: int, today: date | None = None) -> CardState:
@@ -116,6 +135,7 @@ def lexemes_df(conn) -> pd.DataFrame:
     return pd.read_sql_query(
         """SELECT l.*, c.due, c.interval_days, c.ease, c.reps, c.lapses, c.last_review,
                   COUNT(e.id) AS encounters,
+                  GROUP_CONCAT(DISTINCT e.source_title) AS sources,
                   COUNT(DISTINCT e.source_type) AS source_types,
                   MIN(e.seen_at) AS first_seen, MAX(e.seen_at) AS last_seen
            FROM lexemes l

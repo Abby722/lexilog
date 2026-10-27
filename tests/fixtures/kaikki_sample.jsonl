@@ -6,3 +6,12 @@
 {"word": "angepasst", "pos": "verb", "lang": "German", "senses": [{"glosses": ["past participle of anpassen"], "form_of": [{"word": "anpassen"}]}]}
 {"word": "Gemeinde", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Gemeinde f (genitive Gemeinde, plural Gemeinden)"}], "senses": [{"glosses": ["municipality, community"]}]}
 not json at all
+{"word": "gehen", "pos": "verb", "lang": "German", "head_templates": [{"name": "de-verb", "expansion": "gehen (class 7 strong, third-person singular present geht, past tense ging, past participle gegangen, past subjunctive ginge, auxiliary sein)"}], "forms": [{"form": "strong", "tags": ["table-tags"]}, {"form": "geht", "tags": ["present", "singular", "third-person"]}, {"form": "ging", "tags": ["past", "singular", "third-person"]}, {"form": "ginge", "tags": ["past", "singular", "subjunctive-ii", "third-person"]}, {"form": "gegangen", "tags": ["participle", "past"]}, {"form": "sein", "tags": ["auxiliary"]}], "senses": [{"glosses": ["to go, to walk"]}]}
+{"word": "Kosten", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Kosten pl (plural only)"}], "senses": [{"glosses": ["costs, expenses"]}]}
+{"word": "Kost", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Kost f (genitive Kost, no plural)"}], "senses": [{"glosses": ["food, fare"]}]}
+{"word": "Zuschläge", "pos": "noun", "lang": "German", "senses": [{"glosses": ["plural of Zuschlag"], "form_of": [{"word": "Zuschlag"}]}]}
+{"word": "Bund", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Bund m (strong, genitive Bundes, plural Bünde)"}], "senses": [{"glosses": ["federation, union"]}]}
+{"word": "gesetzlich", "pos": "adj", "lang": "German", "senses": [{"glosses": ["legal, statutory"]}]}
+{"word": "Übertragung", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Übertragung f (genitive Übertragung, plural Übertragungen)"}], "senses": [{"glosses": ["transmission, transfer"]}]}
+{"word": "Strom", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Strom m (strong, genitive Stromes or Stroms, plural Ströme)"}], "senses": [{"glosses": ["electricity, current"]}]}
+{"word": "Reserve", "pos": "noun", "lang": "German", "head_templates": [{"name": "de-noun", "expansion": "Reserve f (genitive Reserve, plural Reserven)"}], "senses": [{"glosses": ["reserve"]}]}
